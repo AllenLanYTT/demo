@@ -1,0 +1,48 @@
+name: Open Pull Request
+
+on:
+  push:
+    branches:
+      - feature/**
+      - bugfix/**
+      - chore/**
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Optional: only keep this if the workflow itself generates/edits files.
+      # If humans are already committing the changes, remove this step.
+      - name: Commit generated changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add -A
+            git commit -m "chore: automated update"
+            git push
+          fi
+
+      - name: Create pull request if one does not exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh pr list --head "$GITHUB_REF_NAME" --base main --state open --json number --jq 'length' | grep -q '^0$'; then
+            gh pr create \
+              --base main \
+              --head "$GITHUB_REF_NAME" \
+              --title "Merge $GITHUB_REF_NAME into main" \
+              --body "Automated pull request created by GitHub Actions."
+          fi
